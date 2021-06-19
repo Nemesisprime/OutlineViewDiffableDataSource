@@ -108,45 +108,72 @@ open class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, NSO
   }
 
   /// Enables drag-n-drop validation.
-  public func outlineView(
-    _ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int
-  ) -> NSDragOperation {
-
-    // Calculate proposed change if allowed and take decision from the client handler
-    guard let proposedDrop = proposedDrop(using: info, proposedItem: item, proposedChildIndex: index),
-      let handlers = draggingHandlers, let drop = handlers.validateDrop(self, proposedDrop) else { return [] }
-    switch drop.type {
-
-    // Re-target drop on item
-    case .on:
-      if drop.operation.isEmpty == false {
-        outlineView.setDropItem(drop.targetItem, dropChildIndex: NSOutlineViewDropOnItemIndex)
-      }
-      return drop.operation
-
-    // Re-target drop before item
-    case .before:
-      if drop.operation.isEmpty == false, let childIndex = diffableSnapshot.indexOfItem(drop.targetItem) {
-        let parentItem = diffableSnapshot.parentOfItem(drop.targetItem)
-        outlineView.setDropItem(parentItem, dropChildIndex: childIndex)
-      }
-      return drop.operation
-
-    // Re-target drop after item
-    case .after:
-      if drop.operation.isEmpty == false, let childIndex = diffableSnapshot.indexOfItem(drop.targetItem) {
-        let parentItem = diffableSnapshot.parentOfItem(drop.targetItem)
-        outlineView.setDropItem(parentItem, dropChildIndex: childIndex + 1)
-      }
-      return drop.operation
+    public func outlineView(
+        _ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int
+    ) -> NSDragOperation {
+        
+        // Calculate proposed change if allowed and take decision from the client handler
+        guard
+            let proposedDrop = proposedDrop(using: info, proposedItem: item, proposedChildIndex: index),
+            let handlers = draggingHandlers,
+            let drop = handlers.validateDrop(self, proposedDrop)
+        else {
+            
+            // Offer the delegate passthrough a chance to handle the drag validation.
+            guard
+                let delegateDrag = self.delegate?.outlineView?(outlineView, validateDrop: info, proposedItem: item, proposedChildIndex: index)
+            else {
+                return []
+            }
+            
+            return delegateDrag
+        }
+        
+        switch drop.type {
+        
+        // Re-target drop on item
+        case .on:
+            if drop.operation.isEmpty == false {
+                outlineView.setDropItem(drop.targetItem, dropChildIndex: NSOutlineViewDropOnItemIndex)
+            }
+            return drop.operation
+            
+        // Re-target drop before item
+        case .before:
+            if drop.operation.isEmpty == false, let childIndex = diffableSnapshot.indexOfItem(drop.targetItem) {
+                let parentItem = diffableSnapshot.parentOfItem(drop.targetItem)
+                outlineView.setDropItem(parentItem, dropChildIndex: childIndex)
+            }
+            return drop.operation
+            
+        // Re-target drop after item
+        case .after:
+            if drop.operation.isEmpty == false, let childIndex = diffableSnapshot.indexOfItem(drop.targetItem) {
+                let parentItem = diffableSnapshot.parentOfItem(drop.targetItem)
+                outlineView.setDropItem(parentItem, dropChildIndex: childIndex + 1)
+            }
+            return drop.operation
+        }
     }
-  }
 
   /// Accepts drag-n-drop after validation.
-  public func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
-    guard let drop = proposedDrop(using: info, proposedItem: item, proposedChildIndex: index), let handlers = draggingHandlers else { return false }
-    return handlers.acceptDrop(self, drop)
-  }
+    public func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+        guard
+            let drop = proposedDrop(using: info, proposedItem: item, proposedChildIndex: index),
+            let handlers = draggingHandlers
+        else {
+            
+            guard
+                let delegateAcceptsDrag = self.delegate?.outlineView?(outlineView, acceptDrop: info, item: item, childIndex: index)
+            else {
+                return false
+            }
+            
+            return delegateAcceptsDrag
+        }
+        
+        return handlers.acceptDrop(self, drop)
+    }
 
   // MARK: - NSOutlineViewDelegate
 
@@ -346,6 +373,12 @@ private var animationDuration: TimeInterval {
 
 
 @objc public protocol OutlineViewDiffableDataSourceDelegate {
+    @objc
+    optional func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation
+    
+    @objc
+    optional func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool
+    
     @objc @available(macOS 11.0, *)
     optional func outlineView(_ outlineView: NSOutlineView, tintConfigurationForItem item: Any) -> NSTintConfiguration?
 }
