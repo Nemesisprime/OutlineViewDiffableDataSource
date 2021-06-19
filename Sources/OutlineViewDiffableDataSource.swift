@@ -120,13 +120,11 @@ open class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, NSO
         else {
             
             // Offer the delegate passthrough a chance to handle the drag validation.
-            guard
-                let delegateDrag = self.delegate?.outlineView?(outlineView, validateDrop: info, proposedItem: item, proposedChildIndex: index)
-            else {
+            if let delegateDrag = self.delegate?.outlineView?(outlineView, validateDrop: info, proposedItem: item, proposedChildIndex: index) {
+                return delegateDrag
+            } else {
                 return []
             }
-            
-            return delegateDrag
         }
         
         switch drop.type {
@@ -162,14 +160,11 @@ open class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, NSO
             let drop = proposedDrop(using: info, proposedItem: item, proposedChildIndex: index),
             let handlers = draggingHandlers
         else {
-            
-            guard
-                let delegateAcceptsDrag = self.delegate?.outlineView?(outlineView, acceptDrop: info, item: item, childIndex: index)
-            else {
+            if let delegateAcceptsDrag = self.delegate?.outlineView?(outlineView, acceptDrop: info, item: item, childIndex: index) {
+                return delegateAcceptsDrag
+            } else {
                 return false
             }
-            
-            return delegateAcceptsDrag
         }
         
         return handlers.acceptDrop(self, drop)
