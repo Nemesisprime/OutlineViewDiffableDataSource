@@ -1,7 +1,7 @@
 import AppKit
 
 /// Offers a diffable interface for providing content for `NSOutlineView`.  It automatically performs insertions, deletions, and moves necessary to transition from one model-state snapshot to another.
-public class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
+open class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
 
   /// Shortcut for outline view objects.
   public typealias Item = DiffableDataSourceSnapshot.Item
@@ -11,6 +11,9 @@ public class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, N
 
   /// Associated outline view.
   private weak var outlineView: NSOutlineView?
+    
+  /// An object which implements `OutlineViewDiffableDataSourceDelegate` to receive delegate actions forwarded from `NSOutlineViewDelegate`
+  public weak var delegate: OutlineViewDiffableDataSourceDelegate?
 
   /// Re-targeting API for drag-n-drop.
   public struct ProposedDrop {
@@ -61,7 +64,7 @@ public class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, N
     precondition(outlineView.delegate == nil)
     outlineView.dataSource = self
     outlineView.delegate = self
-    outlineView.usesAutomaticRowHeights = true
+//    outlineView.usesAutomaticRowHeights = true
     self.outlineView = outlineView
     outlineView.registerForDraggedTypes(outlineView.registeredDraggedTypes + [.itemID])
   }
@@ -189,6 +192,11 @@ public class OutlineViewDiffableDataSource: NSObject, NSOutlineViewDataSource, N
     }()
     return rowView
   }
+    
+    @available(macOS 11.0, *)
+    public func outlineView(_ outlineView: NSOutlineView, tintConfigurationForItem item: Any) -> NSTintConfiguration? {
+        return self.delegate?.outlineView?(outlineView, tintConfigurationForItem: item)
+    }
 }
 
 // MARK: - Public API
@@ -318,6 +326,8 @@ private extension OutlineViewDiffableDataSource {
       ? .init(type: .after, targetItem: childItems[index - 1], draggedItems: draggedItems, operation: info.draggingSourceOperationMask)
       : .init(type: .before, targetItem: childItems[index], draggedItems: draggedItems, operation: info.draggingSourceOperationMask)
   }
+    
+    
 }
 
 private extension NSPasteboard.PasteboardType {
@@ -332,4 +342,10 @@ private var animationDuration: TimeInterval {
   guard let currentEvent = NSApplication.shared.currentEvent else { return defaultDuration }
   let flags = currentEvent.modifierFlags.intersection([.shift, .option, .control, .command])
   return defaultDuration * (flags == .shift ? 10 : 1)
+}
+
+
+@objc public protocol OutlineViewDiffableDataSourceDelegate {
+    @objc @available(macOS 11.0, *)
+    optional func outlineView(_ outlineView: NSOutlineView, tintConfigurationForItem item: Any) -> NSTintConfiguration?
 }
